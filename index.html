@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Immersive Reading App</title>
+  <style>
+    .screen { display: none; }
+    .active { display: block; }
+    #textInput { width: 100%; height: 150px; font-size: 16px; padding: 10px; margin-bottom: 10px; }
+    #transcript { border: 1px solid #ccc; padding: 10px; margin-top: 20px; max-height: 400px; overflow-y: auto; }
+    .word { padding: 2px; margin-right: 2px; }
+    .highlight { background-color: yellow; }
+  </style>
+</head>
+<body>
+  <div id="inputScreen" class="screen active">
+    <h1>Enter Your Text</h1>
+    <textarea id="textInput" placeholder="Paste your article text here..."></textarea><br>
+    <button id="proceedBtn">Proceed to Reading Experience</button>
+  </div>
+
+  <div id="readingScreen" class="screen">
+    <h1>Immersive Reading Experience</h1>
+    <button id="backBtn">Back</button><br><br>
+    <audio id="audioPlayer" controls></audio>
+    <h2>Transcript:</h2>
+    <div id="transcript"></div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const inputScreen = document.getElementById('inputScreen');
+      const readingScreen = document.getElementById('readingScreen');
+      const textInput = document.getElementById('textInput');
+      const proceedBtn = document.getElementById('proceedBtn');
+      const backBtn = document.getElementById('backBtn');
+      const transcriptEl = document.getElementById('transcript');
+      const audioPlayer = document.getElementById('audioPlayer');
+      let wordTimings = [];
+
+      function showScreen(id) {
+        inputScreen.classList.remove('active');
+        readingScreen.classList.remove('active');
+        document.getElementById(id).classList.add('active');
+        console.log("Showing screen: " + id);
+      }
+
+      function updateHighlight() {
+        const currentTime = audioPlayer.currentTime;
+        wordTimings.forEach((timing, idx) => {
+          const wordElem = document.getElementById('word-' + idx);
+          if (!wordElem) return;
+          if (currentTime >= timing.start && currentTime < (timing.start + timing.duration)) {
+            wordElem.classList.add('highlight');
+          } else {
+            wordElem.classList.remove('highlight');
+          }
+        });
+      }
+
+      proceedBtn.addEventListener('click', () => {
+        const text = textInput.value.trim();
+        if (!text) return alert("Please enter some text.");
+
+        fetch("http://127.0.0.1:5001/generate-reading", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) return alert("Server error: " + data.error);
+
+          console.log("Received response from backend:", data);
+          audioPlayer.src = data.audioUrl;
+          audioPlayer.load();
+          wordTimings = data.alignment;
+
+          transcriptEl.innerHTML = "";
+          const words = text.split(/\s+/);
+          words.forEach((word, idx) => {
+            const span = document.createElement('span');
+            span.textContent = word + " ";
+            span.className = "word";
+            span.id = "word-" + idx;
+            transcriptEl.appendChild(span);
+          });
+
+          audioPlayer.addEventListener('timeupdate', updateHighlight);
+          showScreen('readingScreen');
+        })
+        .catch(err => {
+          console.error("Error calling backend:", err);
+          alert("Error contacting backend.");
+        });
+      });
+
+      backBtn.addEventListener('click', () => {
+        audioPlayer.pause();
+        audioPlayer.removeEventListener('timeupdate', updateHighlight);
+        showScreen('inputScreen');
+      });
+    });
+  </script>
+</body>
+</html>
