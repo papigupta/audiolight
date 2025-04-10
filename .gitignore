@@ -1,0 +1,16 @@
+# Python virtualenv
+venv/
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+
+# Audio output
+audio/*.aiff
+audio/*.wav
+
+# Logs or backups
+*.log
+*.bak
+
